@@ -1,23 +1,18 @@
-# Imagem Node.js Alpine (muito mais leve)
+# Imagem Node.js Alpine (mais leve)
 FROM node:18-alpine
 
 # Instalar dependências do sistema para o Puppeteer no Alpine
+# NÃO precisa instalar glibc - Alpine já tem musl libc
 RUN apk add --no-cache \
     chromium \
     nss \
     freetype \
-    freetype-dev \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    fontconfig \
-    && apk add --no-cache --virtual .build-deps \
-    wget \
-    && wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub \
-    && wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.34-r0/glibc-2.34-r0.apk \
-    && apk add --no-cache glibc-2.34-r0.apk \
-    && rm glibc-2.34-r0.apk \
-    && apk del .build-deps
+    font-noto \
+    font-noto-cjk \
+    && rm -rf /var/cache/apk/*
 
 # Definir diretório de trabalho
 WORKDIR /app
@@ -47,7 +42,7 @@ RUN chmod +x /app/start.sh
 # Expor porta
 EXPOSE 3000
 
-# Health check simplificado para Alpine
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/status || exit 1
 

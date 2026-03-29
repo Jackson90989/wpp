@@ -1,27 +1,23 @@
-# Imagem Node.js otimizada
-FROM node:18-slim
+# Imagem Node.js Alpine (muito mais leve)
+FROM node:18-alpine
 
-# Instalar dependências do sistema para o Puppeteer
-RUN apt-get update && apt-get install -y \
+# Instalar dependências do sistema para o Puppeteer no Alpine
+RUN apk add --no-cache \
     chromium \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libgbm1 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    xdg-utils \
-    --no-install-recommends \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    fontconfig \
+    && apk add --no-cache --virtual .build-deps \
+    wget \
+    && wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub \
+    && wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.34-r0/glibc-2.34-r0.apk \
+    && apk add --no-cache glibc-2.34-r0.apk \
+    && rm glibc-2.34-r0.apk \
+    && apk del .build-deps
 
 # Definir diretório de trabalho
 WORKDIR /app
@@ -29,8 +25,8 @@ WORKDIR /app
 # Copiar package.json primeiro (cache)
 COPY package.json package-lock.json* ./
 
-# Instalar dependências
-RUN npm install
+# Instalar dependências (apenas produção)
+RUN npm install --production --no-audit --no-fund
 
 # Copiar código fonte
 COPY whatsapp-api.js .
@@ -39,10 +35,11 @@ COPY start.sh .
 # Criar diretórios
 RUN mkdir -p /app/sessions /app/logs
 
-# Configurar variáveis
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# Configurar variáveis para Alpine
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV NODE_OPTIONS="--max-old-space-size=256"
+ENV CHROME_PATH=/usr/bin/chromium-browser
 
 # Tornar script executável
 RUN chmod +x /app/start.sh
@@ -50,9 +47,9 @@ RUN chmod +x /app/start.sh
 # Expor porta
 EXPOSE 3000
 
-# Health check
+# Health check simplificado para Alpine
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/status', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/status || exit 1
 
 # Comando de inicialização
 CMD ["/app/start.sh"]
